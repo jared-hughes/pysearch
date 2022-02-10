@@ -11,12 +11,10 @@ struct Input { const char *name; Vec vec; };
 // ---- start of parameters ---
 
 static const Input inputs[] = {
-  {"x", {32,32,32,32,9608,9608,9608,9608} },
-  {"y", {32,32,9608,9608,32,32,9608,9608} },
-  {"z", {32,9608,32,9608,32,9608,32,9608} },
+  {"x", {1,2,3} },
 };
 static const Vec goal =
-  { 0, 1, 1, 1, 0, 1, 1, 0 };
+  { 2,4,6 };
 
 const int max_length = 15;
 
@@ -58,11 +56,13 @@ Vec ipow(Vec b, Vec e) {
   return r;
 }
 
+/*
 Vec gcd(Vec a, Vec b) {
   Vec r = b;
   for (auto i=0; i<b.size(); i++) r[i] = std::gcd(a[i], b[i]);
   return r;
 }
+*/
 
 enum class Operator : int32_t {
   Or = 0x300,
@@ -223,7 +223,8 @@ void find_expressions(int n) {
         if (!ReuseVars && (eL.var_mask & eR.var_mask)) continue;
         const auto mask = eL.var_mask | eR.var_mask;
         if (Use_Lt && eL.prec() >= 5 && eR.prec() > 5) {
-          cache_if_better(cn, +(oL < oR), Expr{&eL, &eR, Operator::Lt, 0, mask});
+          auto z = 0*oL; z[oL < oR] = 1;
+          cache_if_better(cn, z, Expr{&eL, &eR, Operator::Lt, 0, mask});
         }
         if (Use_BitOr && eL.prec() >= 6 && eR.prec() > 6) {
           cache_if_better(cn, oL | oR, Expr{&eL, &eR, Operator::BitOr, 0, mask});
@@ -250,7 +251,7 @@ void find_expressions(int n) {
               if (Use_Div) cache_if_better(cn, (oL - mod) / oR, Expr{&eL, &eR, Operator::Div, 0, mask});
             }
           }
-          if (Use_Gcd) cache_if_better(cn, gcd(oL, oR), Expr{&eL, &eR, Operator::Gcd, 0, mask});
+          //if (Use_Gcd) cache_if_better(cn, gcd(oL, oR), Expr{&eL, &eR, Operator::Gcd, 0, mask});
         }
       }
       // 2-byte operators
@@ -258,11 +259,14 @@ void find_expressions(int n) {
         if (!ReuseVars && (eL.var_mask & eR.var_mask)) continue;
         const auto mask = eL.var_mask | eR.var_mask;
         if (eL.prec() >= 3 && eR.prec() > 3) {
-          if (Use_Or && ok_before_keyword(&eL) && ok_after_keyword(&eR))
-            cache_if_better(cn, oL + oR * +(oL == 0), Expr{&eL, &eR, Operator::Or, 0, mask});
+          if (Use_Or && ok_before_keyword(&eL) && ok_after_keyword(&eR)) {
+            auto z = 0*oL; z[oL == 0] = 1;
+            cache_if_better(cn, oL + oR * z, Expr{&eL, &eR, Operator::Or, 0, mask});
+          }
         }
         if (Use_Leq && eL.prec() >= 5 && eR.prec() > 5) {
-          cache_if_better(cn, +(oL <= oR), Expr{&eL, &eR, Operator::Leq, 0, mask});
+          auto z = 0*oL; z[oL <= oR] = 1;
+          cache_if_better(cn, z, Expr{&eL, &eR, Operator::Leq, 0, mask});
         }
         if (eL.prec() > 9 && eR.prec() >= 9 && (oR >= 0).min() && (oR <= 31).min()) {
           if (Use_BitShl) cache_if_better(cn, oL << oR, Expr{&eL, &eR, Operator::BitShl, 0, mask});
@@ -278,10 +282,11 @@ void find_expressions(int n) {
         if (!ReuseVars && (eL.var_mask & eR.var_mask)) continue;
         const auto mask = eL.var_mask | eR.var_mask;
         if (eL.prec() >= 3 && eR.prec() > 3) {
-          if (Use_Or && !ok_before_keyword(&eL) && ok_after_keyword(&eR))
-            cache_if_better(cn, oL + oR * +(oL == 0), Expr{&eL, &eR, Operator::SpaceOr, 0, mask});
+          auto z = 0 * oL; z[oL == 0] = 1;
+          if (Use_Or && !ok_before_keyword(&eL) && ok_after_keyword(&eR)) 
+            cache_if_better(cn, oL + oR * z, Expr{&eL, &eR, Operator::SpaceOr, 0, mask});
           if (Use_Or && ok_before_keyword(&eL) && !ok_after_keyword(&eR))
-            cache_if_better(cn, oL + oR * +(oL == 0), Expr{&eL, &eR, Operator::OrSpace, 0, mask});
+            cache_if_better(cn, oL + oR * z, Expr{&eL, &eR, Operator::OrSpace, 0, mask});
         }
       }
     }
