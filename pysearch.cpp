@@ -11,24 +11,24 @@ struct Input { const char *name; Vec vec; };
 // ---- start of parameters ---
 
 static const Input inputs[] = {
-  {"x", {1,2,3} },
+  {"x", {451,452,453,454,500,501,502,600,473,483,   450,475,525,550,575  } },
 };
 static const Vec goal =
-  { 2,4,6 };
+  { 1,1,1,1,1,1,1,1,1,1, 0,0,0,0,0  };
 
-const int max_length = 15;
+const int max_length = 20;
 
 // static const int literals[] = {2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30};
-static const int literals[] = {2,3,4,5,6,7,8,9};
+static const int literals[] = {25,100};
 
 const bool Use_Or = true;
 const bool Use_Lt = true;
 const bool Use_Leq = true;
-const bool Use_BitOr = true;
-const bool Use_BitXor = true;
-const bool Use_BitAnd = true;
-const bool Use_BitShl = true;
-const bool Use_BitShr = true;
+const bool Use_BitOr = false;
+const bool Use_BitXor = false;
+const bool Use_BitAnd = false;
+const bool Use_BitShl = false;
+const bool Use_BitShr = false;
 const bool Use_Add = true;
 const bool Use_Sub = true;
 const bool Use_Mul = true;
@@ -41,6 +41,7 @@ const bool Use_Exp = true;
 
 const bool CStyleMod = false;
 const bool ReuseVars = true;
+const bool SameTruthiness = true;
 
 // ---- end of parameters ---
 
@@ -313,8 +314,13 @@ int main() {
     printf("Found %zu expressions.\n", cache[n].size());
     bool first = true;
     for (const auto &[oR, eR] : cache[n]) {
-      if (( oR != goal ).max())
+      if (
+        SameTruthiness
+          ? ( (oR == 0) != (goal == 0)).max()
+          : ( oR != goal ).max()
+      ) {
         continue;
+      }
       if (first) {
         printf("\n--- Length %d ---\n", n);
         first = false;
