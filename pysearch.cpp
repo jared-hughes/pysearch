@@ -11,37 +11,39 @@ struct Input { const char *name; Vec vec; };
 // ---- start of parameters ---
 
 static const Input inputs[] = {
-  {"x", {451,452,453,454,500,501,502,600,473,483,   450,475,525,550,575  } },
+  {"x", {32,145,226} },
 };
-static const Vec goal =
-  { 1,1,1,1,1,1,1,1,1,1, 0,0,0,0,0  };
 
-const int max_length = 20;
+static const Vec goal =
+  {0,1,1};
+
+const int max_length = 15;
 
 // static const int literals[] = {2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30};
-static const int literals[] = {25,100};
+static const int literals[] = {1,2,3,4,110};
 
-const bool Use_Or = true;
-const bool Use_Lt = true;
-const bool Use_Leq = true;
-const bool Use_BitOr = false;
-const bool Use_BitXor = false;
-const bool Use_BitAnd = false;
-const bool Use_BitShl = false;
-const bool Use_BitShr = false;
+const bool Use_Or = false;
+const bool Use_Lt = false;
+const bool Use_Leq = false;
+const bool Use_BitOr = true;
+const bool Use_BitXor = true;
+const bool Use_BitAnd = true;
+const bool Use_BitShl = true;
+const bool Use_BitShr = true;
+const bool Use_BitNeg = true;
 const bool Use_Add = true;
 const bool Use_Sub = true;
 const bool Use_Mul = true;
 const bool Use_Mod = true;
-const bool Use_Div = true;
+const bool Use_Div1 = false; /* / */
+const bool Use_Div2 = true; /* // */
 const bool Use_Gcd = false;
 const bool Use_Neg = true;
-const bool Use_BitNeg = true;
 const bool Use_Exp = true;
 
 const bool CStyleMod = false;
 const bool ReuseVars = true;
-const bool SameTruthiness = true;
+const bool SameTruthiness = false;
 
 // ---- end of parameters ---
 
@@ -85,8 +87,9 @@ enum class Operator : int32_t {
   Sub = 0xA01,
   Mul = 0xB00,
   Mod = 0xB01,
-  Div = 0xB02,
-  Gcd = 0xB03, // doesn't exist in python
+  Div1 = 0xB02,
+  Div2 = 0xB03,
+  Gcd = 0xB04, // doesn't exist in python
   Neg = 0xC00,
   BitNeg = 0xC01,
   Exp = 0xD00,
@@ -116,7 +119,7 @@ void print_operator(Operator op) {
     case Operator::Eq: printf("=="); break;
     case Operator::Neq: printf("!="); break;
     case Operator::BitOr: printf("|"); break;
-    case Operator::BitXor: printf("^"); break;
+    case Operator::BitXor: printf("~"); break;
     case Operator::BitAnd: printf("&"); break;
     case Operator::BitShl: printf("<<"); break;
     case Operator::BitShr: printf(">>"); break;
@@ -124,11 +127,12 @@ void print_operator(Operator op) {
     case Operator::Sub: printf("-"); break;
     case Operator::Mul: printf("*"); break;
     case Operator::Mod: putchar('%'); break;
-    case Operator::Div: printf("/"); break;
+    case Operator::Div1: printf("/"); break;
+    case Operator::Div2: printf("//"); break;
     case Operator::Gcd: printf("∨"); break;
     case Operator::Neg: printf("-"); break;
     case Operator::BitNeg: printf("~"); break;
-    case Operator::Exp: printf("**"); break;
+    case Operator::Exp: printf("^"); break;
     case Operator::Parens: printf("("); break;
     default: break;
   }
@@ -245,14 +249,27 @@ void find_expressions(int n) {
           if ((oR != 0 && (oL != int_min || oR != -1)).min()) {
             if (CStyleMod) {
               if (Use_Mod) cache_if_better(cn, oL % oR, Expr{&eL, &eR, Operator::Mod, 0, mask});
-              if (Use_Div) cache_if_better(cn, oL / oR, Expr{&eL, &eR, Operator::Div, 0, mask});
+              if (Use_Div1) cache_if_better(cn, oL / oR, Expr{&eL, &eR, Operator::Div1, 0, mask});
             } else {
               auto mod = ((oL % oR) + oR) % oR;
               if (Use_Mod) cache_if_better(cn, mod, Expr{&eL, &eR, Operator::Mod, 0, mask});
-              if (Use_Div) cache_if_better(cn, (oL - mod) / oR, Expr{&eL, &eR, Operator::Div, 0, mask});
+              if (Use_Div1) cache_if_better(cn, (oL - mod) / oR, Expr{&eL, &eR, Operator::Div1, 0, mask});
             }
           }
           //if (Use_Gcd) cache_if_better(cn, gcd(oL, oR), Expr{&eL, &eR, Operator::Gcd, 0, mask});
+        }
+        if (eL.prec() >= 11 && eR.prec() > 11) {
+          if ((oR != 0 && (oL != int_min || oR != -1)).min()) {
+            if (CStyleMod) {
+              if (Use_Div2) cache_if_better(cn, oL / oR, Expr{&eL, &eR, Operator::Div2, 0, mask});
+            } else {
+              auto mod = ((oL % oR) + oR) % oR;
+              if (Use_Div2) cache_if_better(cn, (oL - mod) / oR, Expr{&eL, &eR, Operator::Div2, 0, mask});
+            }
+          }
+        }
+        if (eL.prec() > 13 && eR.prec() >= 13 && (oR >= 0).min() && (oR <= 10).min()) {
+          if (Use_Exp) cache_if_better(cn, ipow(oL, oR), Expr{&eL, &eR, Operator::Exp, 0, mask});
         }
       }
       // 2-byte operators
@@ -272,9 +289,6 @@ void find_expressions(int n) {
         if (eL.prec() > 9 && eR.prec() >= 9 && (oR >= 0).min() && (oR <= 31).min()) {
           if (Use_BitShl) cache_if_better(cn, oL << oR, Expr{&eL, &eR, Operator::BitShl, 0, mask});
           if (Use_BitShr) cache_if_better(cn, oL >> oR, Expr{&eL, &eR, Operator::BitShr, 0, mask});
-        }
-        if (eL.prec() > 13 && eR.prec() >= 13 && (oR >= 0).min() && (oR <= 10).min()) {
-          if (Use_Exp) cache_if_better(cn, ipow(oL, oR), Expr{&eL, &eR, Operator::Exp, 0, mask});
         }
       }
 
